@@ -1,14 +1,28 @@
 
 import React, { useRef, ChangeEvent } from 'react';
+import { AnalysisDepth, AnalysisFocus } from '../types';
 
 interface LogInputProps {
   logContent: string;
   setLogContent: (content: string) => void;
   onAnalyze: () => void;
   isLoading: boolean;
+  analysisDepth: AnalysisDepth;
+  setAnalysisDepth: (depth: AnalysisDepth) => void;
+  analysisFocus: AnalysisFocus;
+  setAnalysisFocus: (focus: AnalysisFocus) => void;
 }
 
-export const LogInput: React.FC<LogInputProps> = ({ logContent, setLogContent, onAnalyze, isLoading }) => {
+export const LogInput: React.FC<LogInputProps> = ({ 
+  logContent, 
+  setLogContent, 
+  onAnalyze, 
+  isLoading,
+  analysisDepth,
+  setAnalysisDepth,
+  analysisFocus,
+  setAnalysisFocus,
+}) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -36,6 +50,42 @@ export const LogInput: React.FC<LogInputProps> = ({ logContent, setLogContent, o
         onChange={(e) => setLogContent(e.target.value)}
         disabled={isLoading}
       />
+
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+              <label htmlFor="analysis-depth" className="block text-sm font-medium text-brand-text-secondary mb-2">
+                  Analysis Depth
+              </label>
+              <select
+                  id="analysis-depth"
+                  value={analysisDepth}
+                  onChange={(e) => setAnalysisDepth(e.target.value as AnalysisDepth)}
+                  disabled={isLoading}
+                  className="w-full p-2 bg-brand-bg border border-brand-border rounded-md text-brand-text-primary focus:ring-2 focus:ring-brand-primary focus:outline-none"
+              >
+                  <option value="Shallow">Shallow</option>
+                  <option value="Detailed">Detailed</option>
+                  <option value="Verbose">Verbose</option>
+              </select>
+          </div>
+          <div>
+              <label htmlFor="analysis-focus" className="block text-sm font-medium text-brand-text-secondary mb-2">
+                  Analysis Focus
+              </label>
+              <select
+                  id="analysis-focus"
+                  value={analysisFocus}
+                  onChange={(e) => setAnalysisFocus(e.target.value as AnalysisFocus)}
+                  disabled={isLoading}
+                  className="w-full p-2 bg-brand-bg border border-brand-border rounded-md text-brand-text-primary focus:ring-2 focus:ring-brand-primary focus:outline-none"
+              >
+                  <option value="All">All Issues</option>
+                  <option value="Security">Security Threats</option>
+                  <option value="Operational">Operational Issues</option>
+              </select>
+          </div>
+      </div>
+
       <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center space-x-2">
             <input

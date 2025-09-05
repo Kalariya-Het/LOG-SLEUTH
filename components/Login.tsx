@@ -4,9 +4,10 @@ import { User } from '../types';
 
 interface LoginProps {
     onLogin: (user: User) => void;
+    onForgotPassword: () => void;
 }
 
-export const Login: React.FC<LoginProps> = ({ onLogin }) => {
+export const Login: React.FC<LoginProps> = ({ onLogin, onForgotPassword }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,16 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 />
             </div>
             <div>
-                 <label htmlFor="password" className="block text-sm font-medium text-brand-text-secondary mb-2">Password</label>
+                <div className="flex items-center justify-between mb-2">
+                    <label htmlFor="password" className="block text-sm font-medium text-brand-text-secondary">Password</label>
+                    <button 
+                        type="button"
+                        onClick={onForgotPassword}
+                        className="text-sm text-brand-primary hover:underline focus:outline-none"
+                    >
+                        Forgot Password?
+                    </button>
+                </div>
                 <input
                     id="password"
                     name="password"
