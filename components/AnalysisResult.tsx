@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { LogAnalysis, SecurityThreat, OperationalIssue } from '../types';
+import { DownloadIcon } from './icons/DownloadIcon';
 
 interface AnalysisResultProps {
   isLoading: boolean;
@@ -63,6 +64,21 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ isLoading, error
   
   const { summary, securityThreats, operationalIssues } = analysis;
   const hasContent = summary || securityThreats.length > 0 || operationalIssues.length > 0;
+
+  const handleExport = () => {
+    if (!analysis) return;
+
+    const jsonString = JSON.stringify(analysis, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'log-sleuth-analysis.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
   
   if (!hasContent) {
      return (
@@ -77,7 +93,17 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ isLoading, error
     <div className="mt-8 max-w-6xl mx-auto space-y-8">
       {/* Summary Section */}
       <div className="p-6 bg-brand-surface border border-brand-border rounded-lg">
-        <h2 className="text-2xl font-bold mb-4 text-brand-primary">Analysis Summary</h2>
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-brand-primary">Analysis Summary</h2>
+            <button
+                onClick={handleExport}
+                className="px-4 py-2 bg-brand-surface border border-brand-border text-brand-text-primary rounded-md hover:bg-slate-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                aria-label="Export analysis results as JSON"
+            >
+                <DownloadIcon />
+                Export JSON
+            </button>
+        </div>
         <p className="text-brand-text-secondary whitespace-pre-wrap">{summary}</p>
       </div>
 

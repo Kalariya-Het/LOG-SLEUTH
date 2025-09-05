@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export interface SecurityThreat {
@@ -25,4 +24,18 @@ export interface Feature {
   icon: React.ReactNode;
   title: string;
   description: string;
+}
+
+export interface HistoryEntry {
+  id: string;
+  userId: string;
+  createdAt: string;
+  logContent: string;
+  analysis: LogAnalysis;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  role: 'user' | 'admin';
 }
