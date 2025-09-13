@@ -15,6 +15,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { supabase } from './services/supabaseClient';
 import * as apiService from './services/apiService';
 import { Session } from '@supabase/supabase-js';
+import { ANALYSIS_CONFIG } from './config/analysis';
 
 type View = 'analyzer' | 'dashboard';
 
@@ -101,13 +102,13 @@ const App: React.FC = () => {
       return;
     }
     
-    if (trimmedContent.length > 100000) {
-      setError('Log content is too large. Please reduce to under 100,000 characters.');
+    if (trimmedContent.length > ANALYSIS_CONFIG.MAX_LOG_SIZE * 2) {
+      setError(`Log content is too large. Please reduce to under ${(ANALYSIS_CONFIG.MAX_LOG_SIZE * 2).toLocaleString()} characters.`);
       return;
     }
     
-    if (trimmedContent.length < 50) {
-      setError('Log content is too short. Please provide more substantial log data.');
+    if (trimmedContent.length < ANALYSIS_CONFIG.MIN_LOG_SIZE) {
+      setError(`Log content is too short. Please provide at least ${ANALYSIS_CONFIG.MIN_LOG_SIZE} characters of log data.`);
       return;
     }
 

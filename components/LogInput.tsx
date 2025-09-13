@@ -1,5 +1,6 @@
 
 import React, { useRef, ChangeEvent } from 'react';
+import { ANALYSIS_CONFIG } from '../config/analysis';
 
 interface LogInputProps {
   logContent: string;
@@ -8,8 +9,8 @@ interface LogInputProps {
   isLoading: boolean;
 }
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const MAX_CONTENT_LENGTH = 100000; // 100k characters
+const MAX_FILE_SIZE = ANALYSIS_CONFIG.MAX_FILE_SIZE;
+const MAX_CONTENT_LENGTH = ANALYSIS_CONFIG.MAX_LOG_SIZE * 2; // Allow double for UI, will be truncated during analysis
 
 export const LogInput: React.FC<LogInputProps> = ({ logContent, setLogContent, onAnalyze, isLoading }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,19 +51,19 @@ export const LogInput: React.FC<LogInputProps> = ({ logContent, setLogContent, o
 
   const getCharacterCountColor = () => {
     const length = logContent.length;
-    if (length > MAX_CONTENT_LENGTH * 0.9) return 'text-red-400';
-    if (length > MAX_CONTENT_LENGTH * 0.7) return 'text-yellow-400';
+    if (length > MAX_CONTENT_LENGTH * ANALYSIS_CONFIG.DANGER_THRESHOLD) return 'text-red-400';
+    if (length > MAX_CONTENT_LENGTH * ANALYSIS_CONFIG.WARNING_THRESHOLD) return 'text-yellow-400';
     return 'text-brand-text-secondary';
   };
 
-  const canAnalyze = logContent.trim().length >= 50 && logContent.length <= MAX_CONTENT_LENGTH;
+  const canAnalyze = logContent.trim().length >= ANALYSIS_CONFIG.MIN_LOG_SIZE && logContent.length <= MAX_CONTENT_LENGTH;
 
   return (
     <div className="max-w-4xl mx-auto bg-brand-surface p-6 rounded-lg border border-brand-border shadow-lg">
       <div className="relative">
         <textarea
           className="w-full h-64 p-4 bg-brand-bg border border-brand-border rounded-md text-brand-text-primary focus:ring-2 focus:ring-brand-primary focus:outline-none resize-y font-mono text-sm"
-          placeholder="Paste your logs here... (minimum 50 characters for analysis)"
+          placeholder={`Paste your logs here... (minimum ${ANALYSIS_CONFIG.MIN_LOG_SIZE} characters for analysis)`}
           value={logContent}
           onChange={handleTextChange}
           disabled={isLoading}

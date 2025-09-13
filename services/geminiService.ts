@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { LogAnalysis } from '../types';
+import { ANALYSIS_CONFIG } from '../config/analysis';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable not set");
