@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
+    "@supabase/supabase-js": "^2.57.4",
     "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
     "react": "^19.1.1",
