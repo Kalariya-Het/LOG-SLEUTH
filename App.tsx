@@ -93,24 +93,60 @@ const App: React.FC = () => {
         setError("You must be logged in to analyze logs.");
         return;
     }
-    if (!contentToAnalyze.trim()) {
+    
+    // Enhanced input validation
+    const trimmedContent = contentToAnalyze.trim();
+    if (!trimmedContent) {
       setError('Log content cannot be empty.');
       return;
     }
+    
+    if (trimmedContent.length > 100000) {
+      setError('Log content is too large. Please reduce to under 100,000 characters.');
+      return;
+    }
+    
+    if (trimmedContent.length < 50) {
+      setError('Log content is too short. Please provide more substantial log data.');
+      return;
+    }
+
     setIsAnalyzing(true);
     setError(null);
     setAnalysisResult(null);
 
     try {
-      const result = await performAnalysis(contentToAnalyze);
+      console.log(`Starting analysis of ${trimmedContent.length} characters...`);
+      const startTime = Date.now();
+      
+      const result = await performAnalysis(trimmedContent);
+      
+      const duration = (Date.now() - startTime) / 1000;
+      console.log(`Analysis completed in ${duration.toFixed(2)} seconds`);
+      
       setAnalysisResult(result);
       
-      const newEntry = await apiService.saveAnalysis(currentUser.id, contentToAnalyze, result);
-      setHistory(prevHistory => [newEntry, ...prevHistory]);
-      setActiveHistoryId(newEntry.id);
+      // Save to history (with error handling)
+      try {
+        const newEntry = await apiService.saveAnalysis(currentUser.id, trimmedContent, result);
+        setHistory(prevHistory => [newEntry, ...prevHistory]);
+        setActiveHistoryId(newEntry.id);
+      } catch (saveError) {
+        console.warn('Failed to save analysis to history:', saveError);
+        // Don't show this error to user as the analysis still succeeded
+      }
 
     } catch (err) {
-      setError(err instanceof Error ? `Analysis failed: ${err.message}` : 'An unknown error occurred.');
+      console.error('Analysis error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      
+      if (errorMessage.includes('timed out')) {
+        setError('Analysis timed out. Try reducing the log size or try again later.');
+      } else if (errorMessage.includes('too large') || errorMessage.includes('size')) {
+        setError('Log content is too large to process. Please reduce the size and try again.');
+      } else {
+        setError(`Analysis failed: ${errorMessage}`);
+      }
     } finally {
       setIsAnalyzing(false);
     }
