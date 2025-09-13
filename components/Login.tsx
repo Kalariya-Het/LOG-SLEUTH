@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import * as apiService from '../services/apiService';
+import { supabase } from '../services/supabaseClient';
 import { User } from '../types';
 
 interface LoginProps {
@@ -17,8 +17,22 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         setError(null);
         setIsLoading(true);
         try {
-            const user = await apiService.login(email, password);
-            onLogin(user);
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (error) throw error;
+
+            if (data.user) {
+                // TODO: Fetch user role from a 'profiles' table after login
+                const user: User = {
+                    id: data.user.id,
+                    email: data.user.email || '',
+                    role: 'user', // Placeholder
+                };
+                onLogin(user);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
         } finally {

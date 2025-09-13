@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import * as apiService from '../services/apiService';
+import { supabase } from '../services/supabaseClient';
 
 interface RegisterProps {
     onRegisterSuccess: () => void;
@@ -23,11 +23,23 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess }) => {
         setSuccess(null);
         setIsLoading(true);
         try {
-            await apiService.register(email, password);
-            setSuccess("Account created successfully! You can now sign in.");
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+            });
+
+            if (error) throw error;
+
+            // Check if user needs email confirmation
+            if (data.user && data.user.identities && data.user.identities.length === 0) {
+                 setSuccess("Please check your email to confirm your account.");
+            } else {
+                setSuccess("Account created successfully! You can now sign in.");
+            }
+
             setTimeout(() => {
                 onRegisterSuccess();
-            }, 2000);
+            }, 3000);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred.');
         } finally {

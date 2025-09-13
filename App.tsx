@@ -11,46 +11,76 @@ import { ServerIcon } from './components/icons/ServerIcon';
 import { HistoryPanel } from './components/HistoryPanel';
 import { Dashboard } from './components/Dashboard';
 import { Auth } from './components/Auth';
-import * as apiService from './services/apiService';
 import { AdminDashboard } from './components/AdminDashboard';
+import { supabase } from './services/supabaseClient';
+import * as apiService from './services/apiService';
+import { Session } from '@supabase/supabase-js';
 
 type View = 'analyzer' | 'dashboard';
 
 const App: React.FC = () => {
+  const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [logContent, setLogContent] = useState<string>('');
   const [analysisResult, setAnalysisResult] = useState<LogAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
   const [view, setView] = useState<View>('analyzer');
 
   useEffect(() => {
-    const user = apiService.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-    }
+    const fetchSessionAndProfile = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        if (session?.user) {
+            const profile = await apiService.getUserProfile(session.user.id);
+            setCurrentUser(profile);
+        }
+    };
+    
+    fetchSessionAndProfile();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      if (session?.user) {
+        const profile = await apiService.getUserProfile(session.user.id);
+        setCurrentUser(profile);
+      } else {
+        setCurrentUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
   
   useEffect(() => {
-    if (currentUser) {
-        setIsLoading(true);
-        apiService.getHistory(currentUser.id).then(userHistory => {
-            setHistory(userHistory);
-            setIsLoading(false);
-        });
-    } else {
-        setHistory([]);
-    }
+    const fetchHistory = async () => {
+        if (currentUser) {
+            setIsLoading(true);
+            try {
+                const userHistory = await apiService.getHistory(currentUser.id);
+                setHistory(userHistory);
+            } catch (error) {
+                setError('Could not fetch history.');
+                console.error(error);
+            } finally {
+                setIsLoading(false);
+            }
+        } else {
+            setHistory([]);
+        }
+    };
+    fetchHistory();
   }, [currentUser]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
   };
 
-  const handleLogout = () => {
-    apiService.logout();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
     setLogContent('');
     setAnalysisResult(null);
@@ -67,7 +97,7 @@ const App: React.FC = () => {
       setError('Log content cannot be empty.');
       return;
     }
-    setIsLoading(true);
+    setIsAnalyzing(true);
     setError(null);
     setAnalysisResult(null);
 
@@ -82,7 +112,7 @@ const App: React.FC = () => {
     } catch (err) {
       setError(err instanceof Error ? `Analysis failed: ${err.message}` : 'An unknown error occurred.');
     } finally {
-      setIsLoading(false);
+      setIsAnalyzing(false);
     }
   }, [currentUser]);
 
@@ -118,7 +148,7 @@ const App: React.FC = () => {
 
   const handleDeleteHistory = useCallback(async (id: string) => {
     if(!currentUser) return;
-    await apiService.deleteHistory(currentUser.id, id);
+    await apiService.deleteHistory(id);
     setHistory(prev => prev.filter(item => item.id !== id));
     if (activeHistoryId === id) {
       setLogContent('');
@@ -205,11 +235,11 @@ const App: React.FC = () => {
                 logContent={logContent}
                 setLogContent={handleLogContentChange}
                 onAnalyze={() => handleAnalyze(logContent)}
-                isLoading={isLoading}
+                isLoading={isAnalyzing} // Changed from isLoading
               />
 
               <AnalysisResult
-                isLoading={isLoading}
+                isLoading={isAnalyzing} // Changed from isLoading
                 error={error}
                 analysis={analysisResult}
               />

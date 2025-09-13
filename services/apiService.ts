@@ -1,159 +1,129 @@
-import { User, HistoryEntry, LogAnalysis } from '../types';
-
-// --- User Management ---
-
-const USERS_KEY = 'logSleuthUsers';
-const SESSION_KEY = 'logSleuthSession';
-
-/**
- * A centralized function to ensure the default admin user is created on first run.
- * This function is the single source of truth for retrieving the user data object.
- */
-const initializeAndGetUsers = (): { [email: string]: User & { password?: string } } => {
-  const usersJson = localStorage.getItem(USERS_KEY);
-  if (!usersJson) {
-    // Initialize with a default admin user if none exist
-    const adminUser: User = { id: 'admin-user', email: 'admin@log-sleuth.com', role: 'admin' };
-    const initialUsers = {
-      'admin@log-sleuth.com': { ...adminUser, password: 'admin123' }
-    };
-    localStorage.setItem(USERS_KEY, JSON.stringify(initialUsers));
-    return initialUsers;
-  }
-  return JSON.parse(usersJson);
-};
-
-
-const getStoredUsers = (): User[] => {
-  const userMap = initializeAndGetUsers();
-  return Object.values(userMap).map((u: any) => ({ id: u.id, email: u.email, role: u.role }));
-};
-
-const getStoredUsersWithPasswords = (): { [email: string]: User & { password?: string } } => {
-    return initializeAndGetUsers();
-};
-
-export const register = (email: string, password: string): Promise<User> => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const users = getStoredUsersWithPasswords();
-      if (users[email]) {
-        return reject(new Error('User with this email already exists.'));
-      }
-      const newUser: User = {
-        id: `user-${Date.now()}`,
-        email,
-        role: 'user',
-      };
-      users[email] = { ...newUser, password };
-      localStorage.setItem(USERS_KEY, JSON.stringify(users));
-      resolve(newUser);
-    }, 500);
-  });
-};
-
-export const login = (email: string, password: string): Promise<User> => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-        const users = getStoredUsersWithPasswords();
-        const user = users[email];
-        if (user && user.password === password) {
-            const userToReturn: User = { id: user.id, email: user.email, role: user.role };
-            sessionStorage.setItem(SESSION_KEY, JSON.stringify(userToReturn));
-            resolve(userToReturn);
-        } else {
-            reject(new Error('Invalid email or password.'));
-        }
-    }, 500);
-  });
-};
-
-export const logout = () => {
-  sessionStorage.removeItem(SESSION_KEY);
-};
-
-export const getCurrentUser = (): User | null => {
-  const userJson = sessionStorage.getItem(SESSION_KEY);
-  return userJson ? JSON.parse(userJson) : null;
-};
+import { supabase } from './supabaseClient';
+import { HistoryEntry, LogAnalysis, User } from '../types';
 
 // --- History Management ---
 
-const HISTORY_KEY = 'logSleuthHistory';
+export const getHistory = async (userId: string): Promise<HistoryEntry[]> => {
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
 
-const getStoredHistory = (): { [userId: string]: HistoryEntry[] } => {
-  const historyJson = localStorage.getItem(HISTORY_KEY);
-  return historyJson ? JSON.parse(historyJson) : {};
+  if (error) {
+    console.error('Error fetching history:', error);
+    throw error;
+  }
+  
+  // Map Supabase data to HistoryEntry type
+  return data.map(item => ({
+      id: item.id,
+      userId: item.user_id,
+      createdAt: item.created_at,
+      logContent: item.log_content,
+      analysis: item.analysis_result as LogAnalysis,
+  }));
 };
 
-const saveStoredHistory = (history: { [userId: string]: HistoryEntry[] }) => {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+export const saveAnalysis = async (userId: string, logContent: string, analysis: LogAnalysis): Promise<HistoryEntry> => {
+    const { data, error } = await supabase
+        .from('analyses')
+        .insert([{ user_id: userId, log_content: logContent, analysis_result: analysis }])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error saving analysis:', error);
+        throw error;
+    }
+
+    return {
+        id: data.id,
+        userId: data.user_id,
+        createdAt: data.created_at,
+        logContent: data.log_content,
+        analysis: data.analysis_result as LogAnalysis,
+    };
 };
 
-export const getHistory = (userId: string): Promise<HistoryEntry[]> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-        const allHistory = getStoredHistory();
-        resolve(allHistory[userId] || []);
-    }, 300);
-  });
+export const deleteHistory = async (historyId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('analyses')
+        .delete()
+        .eq('id', historyId);
+
+    if (error) {
+        console.error('Error deleting history:', error);
+        throw error;
+    }
 };
 
-export const saveAnalysis = (userId: string, logContent: string, analysis: LogAnalysis): Promise<HistoryEntry> => {
-    return new Promise((resolve) => {
-        const allHistory = getStoredHistory();
-        if (!allHistory[userId]) {
-            allHistory[userId] = [];
-        }
-        const newEntry: HistoryEntry = {
-            id: `hist-${Date.now()}`,
-            userId,
-            createdAt: new Date().toISOString(),
-            logContent,
-            analysis,
-        };
-        allHistory[userId].unshift(newEntry);
-        saveStoredHistory(allHistory);
-        resolve(newEntry);
-    });
-};
-
-export const deleteHistory = (userId: string, historyId: string): Promise<void> => {
-    return new Promise((resolve) => {
-        const allHistory = getStoredHistory();
-        if (allHistory[userId]) {
-            allHistory[userId] = allHistory[userId].filter(entry => entry.id !== historyId);
-            saveStoredHistory(allHistory);
-        }
-        resolve();
-    });
-};
-
-export const clearHistory = (userId: string): Promise<void> => {
-     return new Promise((resolve) => {
-        const allHistory = getStoredHistory();
-        if (allHistory[userId]) {
-            allHistory[userId] = [];
-            saveStoredHistory(allHistory);
-        }
-        resolve();
-    });
+export const clearHistory = async (userId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('analyses')
+        .delete()
+        .eq('user_id', userId);
+    
+    if (error) {
+        console.error('Error clearing history:', error);
+        throw error;
+    }
 };
 
 // --- Admin ---
 
-export const getAllHistoryForAdmin = (): Promise<{ user: User, history: HistoryEntry[] }[]> => {
-    return new Promise((resolve) => {
-        const allUsers = getStoredUsers();
-        const allHistory = getStoredHistory();
-        
-        const result = allUsers
-            .filter(user => user.role !== 'admin')
-            .map(user => ({
-                user,
-                history: allHistory[user.id] || [],
-            }));
+export const getAllHistoryForAdmin = async (): Promise<{ user: User, history: HistoryEntry[] }[]> => {
+    // This requires more advanced RLS policies or a database function.
+    // For now, this will only work if the user has an 'admin' role with bypass RLS privileges.
+    // Or, you would create a view or function that the admin role can access.
+    console.warn("getAllHistoryForAdmin requires elevated privileges and specific RLS policies for admin users.");
+    
+    const { data: users, error: usersError } = await supabase
+        .from('profiles')
+        .select('id, email, role');
 
-        resolve(result);
+    if (usersError) {
+        console.error('Error fetching users for admin:', usersError);
+        throw usersError;
+    }
+
+    const historyPromises = users.map(async (user) => {
+        const { data: historyData, error: historyError } = await supabase
+            .from('analyses')
+            .select('*')
+            .eq('user_id', user.id);
+        
+        if (historyError) {
+            console.error(`Error fetching history for user ${user.id}:`, historyError);
+            return { user, history: [] };
+        }
+
+        const history: HistoryEntry[] = historyData.map(item => ({
+            id: item.id,
+            userId: item.user_id,
+            createdAt: item.created_at,
+            logContent: item.log_content,
+            analysis: item.analysis_result as LogAnalysis,
+        }));
+
+        return { user: {id: user.id, email: user.email || '', role: user.role || 'user'}, history };
     });
+
+    return Promise.all(historyPromises);
 };
+
+// --- User Profile ---
+export const getUserProfile = async (userId: string): Promise<User | null> => {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, role')
+        .eq('id', userId)
+        .single();
+
+    if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+    }
+
+    return data ? { id: data.id, email: data.email || '', role: data.role || 'user' } : null;
+}

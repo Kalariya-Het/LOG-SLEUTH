@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Login } from './Login';
 import { Register } from './Register';
 import { SleuthIcon } from './icons/SleuthIcon';
 import { User } from '../types';
+import { supabase } from '../services/supabaseClient';
+import { Session } from '@supabase/supabase-js';
 
 interface AuthProps {
     onLogin: (user: User) => void;
@@ -12,6 +14,35 @@ type AuthView = 'login' | 'register';
 
 export const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     const [view, setView] = useState<AuthView>('login');
+    const [session, setSession] = useState<Session | null>(null);
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            if (session?.user) {
+                const user: User = {
+                    id: session.user.id,
+                    email: session.user.email || '',
+                    role: 'user', // Placeholder, fetch from profiles table
+                };
+                onLogin(user);
+            }
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+             if (session?.user) {
+                const user: User = {
+                    id: session.user.id,
+                    email: session.user.email || '',
+                    role: 'user', // Placeholder
+                };
+                onLogin(user);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [onLogin]);
 
     const activeTabClasses = 'border-brand-primary text-brand-primary';
     const inactiveTabClasses = 'border-transparent text-brand-text-secondary hover:text-brand-text-primary hover:border-gray-500';
